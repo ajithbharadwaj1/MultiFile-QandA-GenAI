@@ -10,97 +10,63 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 
+import sys
+sys.path.append('H:/github_projects/MultiFile-QandA-GenAI/MultiFile-QandA-GenAI')
+sys.path.append('H:/github_projects/MultiFile-QandA-GenAI/MultiFile-QandA-GenAI/utils')
+from utils.web_helpers import *
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 
 
-
-
-
-def get_pdf_text(pdf_docs):
-    text=""
-    for pdf in pdf_docs:
-        pdf_reader= PdfReader(pdf)
-        for page in pdf_reader.pages:
-            text+= page.extract_text()
-    return  text
-
-
-
-def get_text_chunks(text):
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=10000, chunk_overlap=1000)
-    chunks = text_splitter.split_text(text)
-    return chunks
-
-
-def get_vector_store(text_chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
-    vector_store = FAISS.from_texts(text_chunks, embedding=embeddings)
-    vector_store.save_local("faiss_index")
-
-
-def get_conversational_chain():
-
-    prompt_template = """
-    Answer the question as detailed as possible from the provided context, make sure to provide all the details, if the answer is not in
-    provided context just say, "answer is not available in the context", don't provide the wrong answer\n\n
-    Context:\n {context}?\n
-    Question: \n{question}\n
-
-    Answer:
-    """
-
-    model = ChatGoogleGenerativeAI(model="gemini-pro",
-                             temperature=0.3)
-
-    prompt = PromptTemplate(template = prompt_template, input_variables = ["context", "question"])
-    chain = load_qa_chain(model, chain_type="stuff", prompt=prompt)
-
-    return chain
-
-
-
-def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model = "models/embedding-001")
-    
-    new_db = FAISS.load_local("faiss_index", embeddings,allow_dangerous_deserialization=True)
-    docs = new_db.similarity_search(user_question)
-
-    chain = get_conversational_chain()
-
-    
-    response = chain(
-        {"input_documents":docs, "question": user_question}
-        , return_only_outputs=True)
-
-    print(response)
-    st.write("Reply: ", response["output_text"])
-
-
-
-
 def main():
-    st.set_page_config("Chat PDF")
-    st.header("Chat with PDF using Gemini💁")
+    st.title("Value Input and Storage")
 
+    # Initialize an empty list to store values
+    values = []
+
+    # Display an input field for the user to enter a value
+    user_input = st.text_input("Enter values separated by commas:")
+
+    # Check if the user has entered a value and submitted it
+    if st.button("Submit"):
+        if user_input:
+            # Split the input string by commas and remove any leading/trailing spaces
+            input_values = [value.strip() for value in user_input.split(",")]
+
+            # Extend the values list with the input values
+            values.extend(input_values)
+            st.success(f"Values '{', '.join(input_values)}' added to the list!")
+
+            
+            
+
+    # Display the current list of values
+    st.write("Current List of Values:")
+    st.write(values)
+    a = load_pages(values)
+    if a=='success':
+        st.write("Successfully written the pages")
+    display_q_and_a()
+
+def display_q_and_a():
+    st.write("Let's start Q and A")
     user_question = st.text_input("Ask a Question from the PDF Files")
-
     if user_question:
-        user_input(user_question)
+        ans = q_and_a(user_question)
+        st.write(ans)
 
-    with st.sidebar:
-        st.title("Menu:")
-        pdf_docs = st.file_uploader("Upload your PDF Files and Click on the Submit & Process Button", accept_multiple_files=True)
-        if st.button("Submit & Process"):
-            with st.spinner("Processing..."):
-                raw_text = get_pdf_text(pdf_docs)
-                text_chunks = get_text_chunks(raw_text)
-                get_vector_store(text_chunks)
-                st.success("Done")
+
+
+
 
 
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
